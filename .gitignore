@@ -1,0 +1,70 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Production build
+dist/
+build/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Docker
+docker-compose.yml
+Dockerfile
+
+# Misc
+*.pid
+*.seed
+*.seed.*
+*.pid.*
+.pnpm-debug.log*
+
+# Server files
+server.crt
+server.key
+
+# Temporary files
+temp/
+tmp/
+
+# Uploads (if storing locally)
+uploads/
+
+# SSL certificates
+ssl/
+*.pem
+*.crt
+*.key
+
+# Backup files
+*.bak
+
+# Environment specific
+.env.production
+.env.staging
+.env.test
