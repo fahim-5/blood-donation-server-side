@@ -1,42 +1,104 @@
-import { body, validationResult } from 'express-validator';
+const { validationResult } = require('express-validator');
+const Joi = require('joi');
 
-// Handle validation errors
-export const handleValidationErrors = (req, res, next) => {
-  const errors = validationResult(req);
-  if (!errors.isEmpty()) {
-    return res.status(400).json({
-      success: false,
-      errors: errors.array()
-    });
-  }
-  next();
+const validateRequest = (schema) => {
+    return (req, res, next) => {
+        const { error } = schema.validate(req.body, { abortEarly: false });
+        
+        if (error) {
+            const errors = error.details.map(detail => ({
+                field: detail.path.join('.'),
+                message: detail.message.replace(/"/g, '')
+            }));
+            
+            return res.status(400).json({
+                success: false,
+                message: 'Validation failed',
+                errors
+            });
+        }
+        
+        next();
+    };
 };
 
-// User validation rules
-export const validateUser = [
-  body('name')
-    .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage('Name must be between 2 and 50 characters'),
-  body('email')
-    .isEmail()
-    .normalizeEmail()
-    .withMessage('Please provide a valid email'),
-  body('password')
-    .isLength({ min: 6 })
-    .withMessage('Password must be at least 6 characters long'),
-  handleValidationErrors
-];
+const validateExpressValidator = (req, res, next) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        const formattedErrors = errors.array().map(error => ({
+            field: error.param,
+            message: error.msg
+        }));
+        
+        return res.status(400).json({
+            success: false,
+            message: 'Validation failed',
+            errors: formattedErrors
+        });
+    }
+    next();
+};
 
-// Post validation rules
-export const validatePost = [
-  body('title')
-    .trim()
-    .isLength({ min: 5, max: 100 })
-    .withMessage('Title must be between 5 and 100 characters'),
-  body('content')
-    .trim()
-    .isLength({ min: 10 })
-    .withMessage('Content must be at least 10 characters long'),
-  handleValidationErrors
-];
+const validateObjectId = (paramName) => {
+    return (req, res, next) => {
+        const id = req.params[paramName];
+        const mongoose = require('mongoose');
+        
+        if (!mongoose.Types.ObjectId.isValid(id)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid ${paramName} ID format`
+            });
+        }
+        
+        next();
+    };
+};
+
+const validatePagination = (req, res, next) => {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    
+    if (page < 1 || limit < 1 || limit > 100) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid pagination parameters. Page must be >= 1, limit must be between 1 and 100'
+        });
+    }
+    
+    req.pagination = { page, limit };
+    next();
+};
+
+const validateFileUpload = (req, res, next) => {
+    if (!req.file) {
+        return next();
+    }
+    
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif'];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+    
+    if (!allowedTypes.includes(req.file.mimetype)) {
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid file type. Only JPEG, JPG, PNG, GIF are allowed'
+        });
+    }
+    
+    if (req.file.size > maxSize) {
+        return res.status(400).json({
+            success: false,
+            message: 'File too large. Maximum size is 5MB'
+        });
+    }
+    
+    next();
+};
+
+module.exports = {
+    validateRequest,
+    validateExpressValidator,
+    validateObjectId,
+    validatePagination,
+    validateFileUpload
+};
