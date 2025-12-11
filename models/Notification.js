@@ -1,5 +1,4 @@
-// server/src/models/Notification.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const notificationSchema = new mongoose.Schema(
   {
@@ -595,4 +594,5 @@ notificationSchema.index({ 'deliveryStatus.push.sent': 1 });
 
 const Notification = mongoose.model('Notification', notificationSchema);
 
-module.exports = Notification;
+// Export as default ES6 module
+export default Notification;  // Changed from: module.exports = Notification

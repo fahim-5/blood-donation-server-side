@@ -1,3 +1,7 @@
+import User from '../models/User.js';
+import DonationRequest from '../models/DonationRequest.js';
+import Funding from '../models/Funding.js';
+
 const authorize = (...roles) => {
     return (req, res, next) => {
         if (!req.user) {
@@ -51,7 +55,26 @@ const isDonor = (req, res, next) => {
 const isOwnerOrAdmin = (modelName) => {
     return async (req, res, next) => {
         try {
-            const Model = require(`../models/${modelName}`);
+            let Model;
+            
+            // Dynamically import the model based on modelName
+            switch (modelName) {
+                case 'User':
+                    Model = User;
+                    break;
+                case 'DonationRequest':
+                    Model = DonationRequest;
+                    break;
+                case 'Funding':
+                    Model = Funding;
+                    break;
+                default:
+                    return res.status(400).json({
+                        success: false,
+                        message: 'Invalid model name'
+                    });
+            }
+            
             const resource = await Model.findById(req.params.id);
             
             if (!resource) {
@@ -76,7 +99,11 @@ const isOwnerOrAdmin = (modelName) => {
             }
 
             if (modelName === 'Funding') {
-                if (resource.user.toString() === req.user._id.toString()) {
+                if (resource.user && resource.user.toString() === req.user._id.toString()) {
+                    return next();
+                }
+                // Check donor field as well
+                if (resource.donor && resource.donor.toString() === req.user._id.toString()) {
                     return next();
                 }
             }
@@ -95,7 +122,17 @@ const isOwnerOrAdmin = (modelName) => {
     };
 };
 
-module.exports = {
+// Export as ES6 named exports
+export {
+    authorize,
+    isAdmin,
+    isVolunteer,
+    isDonor,
+    isOwnerOrAdmin
+};
+
+// Also export a default object if needed
+export default {
     authorize,
     isAdmin,
     isVolunteer,

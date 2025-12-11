@@ -1,5 +1,4 @@
-// server/src/models/Funding.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const fundingSchema = new mongoose.Schema(
   {
@@ -447,4 +446,5 @@ fundingSchema.index({ donorEmail: 1, status: 1 });
 
 const Funding = mongoose.model('Funding', fundingSchema);
 
-module.exports = Funding;
+// Export as default ES6 module
+export default Funding;  // Changed from: module.exports = Funding

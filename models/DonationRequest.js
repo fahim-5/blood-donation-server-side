@@ -1,5 +1,4 @@
-// server/src/models/DonationRequest.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const donationRequestSchema = new mongoose.Schema(
   {
@@ -344,4 +343,5 @@ donationRequestSchema.index({ isActive: 1, status: 1, donationDate: 1 });
 
 const DonationRequest = mongoose.model('DonationRequest', donationRequestSchema);
 
-module.exports = DonationRequest;
+// Export as default ES6 module
+export default DonationRequest;  // Changed from: module.exports = DonationRequest

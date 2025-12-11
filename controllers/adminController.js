@@ -1,17 +1,16 @@
-// server/src/controllers/adminController.js
-const User = require('../models/User');
-const DonationRequest = require('../models/DonationRequest');
-const Funding = require('../models/Funding');
-const Contact = require('../models/Contact');
-const ActivityLog = require('../models/ActivityLog');
-const Notification = require('../models/Notification');
-const asyncHandler = require('../middleware/asyncHandler');
-const ErrorResponse = require('../utils/errorResponse');
+import User from '../models/User.js';
+import DonationRequest from '../models/DonationRequest.js';
+import Funding from '../models/Funding.js';
+import Contact from '../models/Contact.js';
+import ActivityLog from '../models/ActivityLog.js';
+import Notification from '../models/Notification.js';
+import asyncHandler from '../middleware/asyncHandler.js';
+import ErrorResponse from '../utils/errorResponse.js';
 
 // @desc    Get admin dashboard statistics
-// @route   GET /api/admin/dashboard-stats
+// @route   GET /api/admin/dashboard/stats
 // @access  Private/Admin
-exports.getDashboardStats = asyncHandler(async (req, res, next) => {
+const getDashboardStats = asyncHandler(async (req, res, next) => {
   // Get date ranges
   const today = new Date();
   const startOfToday = new Date(today.setHours(0, 0, 0, 0));
@@ -204,7 +203,7 @@ exports.getDashboardStats = asyncHandler(async (req, res, next) => {
 // @desc    Get detailed analytics
 // @route   GET /api/admin/analytics
 // @access  Private/Admin
-exports.getAnalytics = asyncHandler(async (req, res, next) => {
+const getAnalytics = asyncHandler(async (req, res, next) => {
   const { period = 'month', year = new Date().getFullYear() } = req.query;
   
   let startDate, endDate;
@@ -495,7 +494,7 @@ exports.getAnalytics = asyncHandler(async (req, res, next) => {
 // @desc    Get system logs
 // @route   GET /api/admin/logs
 // @access  Private/Admin
-exports.getSystemLogs = asyncHandler(async (req, res, next) => {
+const getSystemLogs = asyncHandler(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 50;
   const skip = (page - 1) * limit;
@@ -602,7 +601,7 @@ exports.getSystemLogs = asyncHandler(async (req, res, next) => {
 // @desc    Get user management data
 // @route   GET /api/admin/users
 // @access  Private/Admin
-exports.getUserManagement = asyncHandler(async (req, res, next) => {
+const getUserManagement = asyncHandler(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 20;
   const skip = (page - 1) * limit;
@@ -780,10 +779,138 @@ exports.getUserManagement = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get all users with statistics (alias for getUserManagement)
+// @route   GET /api/admin/users
+// @access  Private/Admin
+const getAllUsersWithStats = getUserManagement;
+
+// @desc    Block a user
+// @route   PUT /api/admin/users/:id/block
+// @access  Private/Admin
+const blockUser = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { reason } = req.body;
+
+  const user = await User.findById(id);
+  if (!user) {
+    return next(new ErrorResponse('User not found', 404));
+  }
+
+  if (user.role === 'admin') {
+    return next(new ErrorResponse('Cannot block admin users', 403));
+  }
+
+  user.status = 'blocked';
+  user.blockedAt = new Date();
+  user.blockedBy = req.user._id;
+  user.blockReason = reason || 'Administrative action';
+  await user.save();
+
+  // Log activity
+  await ActivityLog.logActivity({
+    user: req.user._id,
+    userName: req.user.name,
+    userEmail: req.user.email,
+    userRole: req.user.role,
+    action: 'Blocked User',
+    actionType: 'update',
+    category: 'admin',
+    description: `Blocked user: ${user.name} (${user.email})`,
+    details: `Reason: ${reason || 'Administrative action'}`,
+    status: 'success',
+    userIp: req.ip,
+    userAgent: req.headers['user-agent'],
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'User blocked successfully',
+    data: user,
+  });
+});
+
+// @desc    Unblock a user
+// @route   PUT /api/admin/users/:id/unblock
+// @access  Private/Admin
+const unblockUser = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+
+  const user = await User.findById(id);
+  if (!user) {
+    return next(new ErrorResponse('User not found', 404));
+  }
+
+  user.status = 'active';
+  user.blockedAt = null;
+  user.blockedBy = null;
+  user.blockReason = null;
+  await user.save();
+
+  // Log activity
+  await ActivityLog.logActivity({
+    user: req.user._id,
+    userName: req.user.name,
+    userEmail: req.user.email,
+    userRole: req.user.role,
+    action: 'Unblocked User',
+    actionType: 'update',
+    category: 'admin',
+    description: `Unblocked user: ${user.name} (${user.email})`,
+    status: 'success',
+    userIp: req.ip,
+    userAgent: req.headers['user-agent'],
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'User unblocked successfully',
+    data: user,
+  });
+});
+
+// @desc    Change user role
+// @route   PUT /api/admin/users/:id/role
+// @access  Private/Admin
+const changeUserRole = asyncHandler(async (req, res, next) => {
+  const { id } = req.params;
+  const { role } = req.body;
+
+  const user = await User.findById(id);
+  if (!user) {
+    return next(new ErrorResponse('User not found', 404));
+  }
+
+  const oldRole = user.role;
+  user.role = role;
+  await user.save();
+
+  // Log activity
+  await ActivityLog.logActivity({
+    user: req.user._id,
+    userName: req.user.name,
+    userEmail: req.user.email,
+    userRole: req.user.role,
+    action: 'Changed User Role',
+    actionType: 'update',
+    category: 'admin',
+    description: `Changed user role for ${user.name} (${user.email})`,
+    details: `From: ${oldRole} → To: ${role}`,
+    status: 'success',
+    userIp: req.ip,
+    userAgent: req.headers['user-agent'],
+  });
+
+  res.status(200).json({
+    success: true,
+    message: 'User role updated successfully',
+    data: user,
+  });
+});
+
 // @desc    Get donation request management data
 // @route   GET /api/admin/donations
 // @access  Private/Admin
-exports.getDonationManagement = asyncHandler(async (req, res, next) => {
+const getDonationManagement = asyncHandler(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 20;
   const skip = (page - 1) * limit;
@@ -941,10 +1068,15 @@ exports.getDonationManagement = asyncHandler(async (req, res, next) => {
   });
 });
 
+// @desc    Get all donation requests (alias for getDonationManagement)
+// @route   GET /api/admin/donation-requests
+// @access  Private/Admin
+const getAllDonationRequests = getDonationManagement;
+
 // @desc    Send system-wide notification
 // @route   POST /api/admin/notify-all
 // @access  Private/Admin
-exports.sendSystemNotification = asyncHandler(async (req, res, next) => {
+const sendSystemNotification = asyncHandler(async (req, res, next) => {
   const { title, message, type = 'info', priority = 'medium', targetUsers = 'all' } = req.body;
 
   if (!title || !message) {
@@ -1029,7 +1161,7 @@ exports.sendSystemNotification = asyncHandler(async (req, res, next) => {
 // @desc    Cleanup old data
 // @route   POST /api/admin/cleanup
 // @access  Private/Admin
-exports.cleanupOldData = asyncHandler(async (req, res, next) => {
+const cleanupOldData = asyncHandler(async (req, res, next) => {
   const { cleanupType = 'logs', days = 90 } = req.body;
 
   let result;
@@ -1088,7 +1220,7 @@ exports.cleanupOldData = asyncHandler(async (req, res, next) => {
 // @desc    Export data
 // @route   GET /api/admin/export
 // @access  Private/Admin
-exports.exportData = asyncHandler(async (req, res, next) => {
+const exportData = asyncHandler(async (req, res, next) => {
   const { dataType, format = 'json', startDate, endDate } = req.query;
 
   if (!dataType) {
@@ -1173,7 +1305,7 @@ exports.exportData = asyncHandler(async (req, res, next) => {
 
   if (format === 'csv') {
     // Convert to CSV
-    const { Parser } = require('json2csv');
+    const { Parser } = await import('json2csv');
     const fields = Object.keys(data[0] || {});
     const json2csvParser = new Parser({ fields });
     const csv = json2csvParser.parse(data);
@@ -1193,3 +1325,20 @@ exports.exportData = asyncHandler(async (req, res, next) => {
     data,
   });
 });
+
+// Export all controller methods
+export default {
+  getDashboardStats,
+  getAnalytics,
+  getSystemLogs,
+  getUserManagement,
+  getAllUsersWithStats,
+  blockUser,
+  unblockUser,
+  changeUserRole,
+  getDonationManagement,
+  getAllDonationRequests,
+  sendSystemNotification,
+  cleanupOldData,
+  exportData,
+};

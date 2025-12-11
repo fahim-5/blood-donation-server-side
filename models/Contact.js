@@ -1,5 +1,4 @@
-// server/src/models/Contact.js
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const contactSchema = new mongoose.Schema(
   {
@@ -451,4 +450,5 @@ contactSchema.index({ status: 1, priority: 1, createdAt: -1 });
 
 const Contact = mongoose.model('Contact', contactSchema);
 
-module.exports = Contact;
+// Export as default
+export default Contact;  // Changed from module.exports = Contact

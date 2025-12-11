@@ -1,4 +1,4 @@
-const User = require('../models/User');
+import User from '../models/User.js';
 
 const checkBlockedUser = async (req, res, next) => {
     try {
@@ -102,7 +102,8 @@ const adminOnlyBlocking = (req, res, next) => {
     next();
 };
 
-module.exports = {
+// Export as ES6
+export {
     checkBlockedUser,
     preventBlockedUserAction,
     checkUserStatusBeforeRequest,
