@@ -1,16 +1,15 @@
-// server/src/controllers/volunteerController.js
-const DonationRequest = require('../models/DonationRequest');
-const User = require('../models/User');
-const Contact = require('../models/Contact');
-const Notification = require('../models/Notification');
-const ActivityLog = require('../models/ActivityLog');
-const asyncHandler = require('../middleware/asyncHandler');
-const ErrorResponse = require('../utils/errorResponse');
+import DonationRequest from '../models/DonationRequest.js';
+import User from '../models/User.js';
+import Contact from '../models/Contact.js';
+import Notification from '../models/Notification.js';
+import ActivityLog from '../models/ActivityLog.js';
+import asyncHandler from '../middleware/asyncHandler.js';
+import ErrorResponse from '../utils/errorResponse.js';
 
 // @desc    Get volunteer dashboard statistics
 // @route   GET /api/volunteer/dashboard-stats
 // @access  Private/Volunteer
-exports.getVolunteerDashboard = asyncHandler(async (req, res, next) => {
+export const getVolunteerDashboard = asyncHandler(async (req, res, next) => {
   const today = new Date();
   const startOfToday = new Date(today.setHours(0, 0, 0, 0));
   const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay()));
@@ -136,7 +135,7 @@ exports.getVolunteerDashboard = asyncHandler(async (req, res, next) => {
 // @desc    Get donation requests for volunteer management
 // @route   GET /api/volunteer/donation-requests
 // @access  Private/Volunteer
-exports.getVolunteerDonationRequests = asyncHandler(async (req, res, next) => {
+export const getVolunteerDonationRequests = asyncHandler(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 20;
   const skip = (page - 1) * limit;
@@ -229,7 +228,7 @@ exports.getVolunteerDonationRequests = asyncHandler(async (req, res, next) => {
 // @desc    Update donation request status (Volunteer can update status only)
 // @route   PATCH /api/volunteer/donation-requests/:id/status
 // @access  Private/Volunteer
-exports.updateDonationStatus = asyncHandler(async (req, res, next) => {
+export const updateDonationStatus = asyncHandler(async (req, res, next) => {
   const { status, note } = req.body;
   const validStatuses = ['pending', 'inprogress', 'done', 'canceled'];
 
@@ -388,7 +387,7 @@ exports.updateDonationStatus = asyncHandler(async (req, res, next) => {
 // @desc    Assign donor to donation request (Volunteer can suggest/match)
 // @route   POST /api/volunteer/donation-requests/:id/assign-donor
 // @access  Private/Volunteer
-exports.assignDonor = asyncHandler(async (req, res, next) => {
+export const assignDonor = asyncHandler(async (req, res, next) => {
   const { donorId, note } = req.body;
 
   if (!donorId) {
@@ -542,7 +541,7 @@ exports.assignDonor = asyncHandler(async (req, res, next) => {
 // @desc    Get available donors for matching
 // @route   GET /api/volunteer/available-donors
 // @access  Private/Volunteer
-exports.getAvailableDonors = asyncHandler(async (req, res, next) => {
+export const getAvailableDonors = asyncHandler(async (req, res, next) => {
   const {
     bloodGroup,
     district,
@@ -689,7 +688,7 @@ exports.getAvailableDonors = asyncHandler(async (req, res, next) => {
 // @desc    Get volunteer's assigned contacts
 // @route   GET /api/volunteer/assigned-contacts
 // @access  Private/Volunteer
-exports.getAssignedContacts = asyncHandler(async (req, res, next) => {
+export const getAssignedContacts = asyncHandler(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 20;
   const skip = (page - 1) * limit;
@@ -760,7 +759,7 @@ exports.getAssignedContacts = asyncHandler(async (req, res, next) => {
 // @desc    Respond to assigned contact
 // @route   POST /api/volunteer/contacts/:id/respond
 // @access  Private/Volunteer
-exports.respondToContact = asyncHandler(async (req, res, next) => {
+export const respondToContact = asyncHandler(async (req, res, next) => {
   const { message, sendVia = 'email', markAsResolved = false } = req.body;
 
   if (!message) {
@@ -821,7 +820,7 @@ exports.respondToContact = asyncHandler(async (req, res, next) => {
 // @desc    Get volunteer's activity log
 // @route   GET /api/volunteer/activity-log
 // @access  Private/Volunteer
-exports.getVolunteerActivityLog = asyncHandler(async (req, res, next) => {
+export const getVolunteerActivityLog = asyncHandler(async (req, res, next) => {
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 20;
   const skip = (page - 1) * limit;
@@ -901,7 +900,7 @@ exports.getVolunteerActivityLog = asyncHandler(async (req, res, next) => {
 // @desc    Get urgent tasks for volunteer
 // @route   GET /api/volunteer/urgent-tasks
 // @access  Private/Volunteer
-exports.getUrgentTasks = asyncHandler(async (req, res, next) => {
+export const getUrgentTasks = asyncHandler(async (req, res, next) => {
   // Get urgent donation requests
   const urgentDonations = await DonationRequest.find({
     isActive: true,
@@ -953,7 +952,7 @@ exports.getUrgentTasks = asyncHandler(async (req, res, next) => {
 // @desc    Mark task as completed
 // @route   POST /api/volunteer/tasks/:id/complete
 // @access  Private/Volunteer
-exports.completeTask = asyncHandler(async (req, res, next) => {
+export const completeTask = asyncHandler(async (req, res, next) => {
   const { taskType, donationId, contactId, notes } = req.body;
 
   if (!taskType) {
@@ -1024,3 +1023,17 @@ exports.completeTask = asyncHandler(async (req, res, next) => {
     data: result,
   });
 });
+
+// ADD THIS AT THE END FOR DEFAULT EXPORT
+export default {
+  getVolunteerDashboard,
+  getVolunteerDonationRequests,
+  updateDonationStatus,
+  assignDonor,
+  getAvailableDonors,
+  getAssignedContacts,
+  respondToContact,
+  getVolunteerActivityLog,
+  getUrgentTasks,
+  completeTask
+};

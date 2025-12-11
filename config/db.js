@@ -1,5 +1,5 @@
-const mongoose = require('mongoose');
-const logger = require('../middleware/loggerMiddleware').logger;
+import mongoose from 'mongoose';
+import logger from '../middleware/loggerMiddleware.js';
 
 // MongoDB connection configuration
 const dbConfig = {
@@ -363,6 +363,19 @@ const backupDatabase = async (backupPath = './backups') => {
     }
 };
 
+// Helper function to format bytes
+const formatBytes = (bytes, decimals = 2) => {
+    if (bytes === 0) return '0 Bytes';
+    
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
+    
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+};
+
 // Database utilities for specific operations
 const dbUtils = {
     // Get database size information
@@ -401,21 +414,8 @@ const dbUtils = {
     }
 };
 
-// Helper function to format bytes
-const formatBytes = (bytes, decimals = 2) => {
-    if (bytes === 0) return '0 Bytes';
-    
-    const k = 1024;
-    const dm = decimals < 0 ? 0 : decimals;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB', 'PB'];
-    
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
-};
-
 // Export configuration and functions
-module.exports = {
+export {
     dbConfig,
     connectDB,
     disconnectDB,
@@ -423,5 +423,9 @@ module.exports = {
     checkDBHealth,
     backupDatabase,
     createIndexes,
-    ...dbUtils
+    dbUtils,
+    formatBytes
 };
+
+// Export default connectDB function
+export default connectDB;

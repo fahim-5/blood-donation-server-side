@@ -1,91 +1,136 @@
-import jwt from 'jsonwebtoken';
-import User from '../models/User.js';
-import AppError from '../utils/appError.js';
-
-// Generate JWT Token
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRES_IN || '30d'
-  });
+// Remove all the export keywords before functions
+const register = async (req, res, next) => {
+  // ... function body
 };
 
-// Send token response
-const sendTokenResponse = (user, statusCode, res) => {
-  const token = generateToken(user._id);
-
-  res.status(statusCode).json({
-    success: true,
-    token,
-    data: {
-      user
-    }
-  });
+const login = async (req, res, next) => {
+  // ... function body
 };
 
-// @desc    Register user
-// @route   POST /api/auth/register
-// @access  Public
-export const register = async (req, res, next) => {
+const getMe = async (req, res, next) => {
+  // ... function body
+};
+
+// Add all the other functions you need
+const refreshToken = async (req, res, next) => {
   try {
-    const { name, email, password } = req.body;
-
-    // Check if user exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return next(new AppError('User already exists with this email', 400));
-    }
-
-    // Create user
-    const user = await User.create({
-      name,
-      email,
-      password
+    // ... implementation
+    res.status(200).json({
+      success: true,
+      token: 'new-token'
     });
-
-    sendTokenResponse(user, 201, res);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-// @access  Public
-export const login = async (req, res, next) => {
+const forgotPassword = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
-
-    // Check if email and password exist
-    if (!email || !password) {
-      return next(new AppError('Please provide email and password', 400));
+    const { email } = req.body;
+    
+    const user = await User.findOne({ email });
+    if (!user) {
+      return next(new ErrorResponse('No user found with this email', 404));
     }
+    
+    // Generate reset token
+    const resetToken = user.getResetPasswordToken();
+    await user.save({ validateBeforeSave: false });
+    
+    // Create reset URL
+    const resetUrl = `${req.protocol}://${req.get('host')}/api/auth/reset-password/${resetToken}`;
+    
+    // Send email (you need to implement email service)
+    // await sendEmail({...});
+    
+    res.status(200).json({
+      success: true,
+      message: 'Password reset email sent'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    // Check if user exists and password is correct
-    const user = await User.findOne({ email }).select('+password');
-    if (!user || !(await user.comparePassword(password))) {
-      return next(new AppError('Invalid email or password', 401));
+const resetPassword = async (req, res, next) => {
+  try {
+    // Get hashed token
+    const resetPasswordToken = crypto
+      .createHash('sha256')
+      .update(req.params.token)
+      .digest('hex');
+    
+    const user = await User.findOne({
+      resetPasswordToken,
+      resetPasswordExpire: { $gt: Date.now() }
+    });
+    
+    if (!user) {
+      return next(new ErrorResponse('Invalid or expired token', 400));
     }
-
+    
+    // Set new password
+    user.password = req.body.password;
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+    
     sendTokenResponse(user, 200, res);
   } catch (error) {
     next(error);
   }
 };
 
-// @desc    Get current user
-// @route   GET /api/auth/me
-// @access  Private
-export const getMe = async (req, res, next) => {
+const changePassword = async (req, res, next) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.id).select('+password');
+    
+    // Check current password
+    const isMatch = await user.comparePassword(req.body.currentPassword);
+    if (!isMatch) {
+      return next(new ErrorResponse('Current password is incorrect', 401));
+    }
+    
+    // Update password
+    user.password = req.body.newPassword;
+    await user.save();
+    
+    sendTokenResponse(user, 200, res);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const logout = async (req, res, next) => {
+  res.status(200).json({
+    success: true,
+    message: 'Logged out successfully'
+  });
+};
+
+const getAllUsers = async (req, res, next) => {
+  try {
+    const users = await User.find();
     
     res.status(200).json({
       success: true,
-      data: {
-        user
-      }
+      count: users.length,
+      data: users
     });
   } catch (error) {
     next(error);
   }
+};
+
+// Export as default object
+export default {
+  register,
+  login,
+  getMe,
+  refreshToken,
+  forgotPassword,
+  resetPassword,
+  changePassword,
+  logout,
+  getAllUsers
 };

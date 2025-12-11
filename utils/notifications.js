@@ -1,7 +1,7 @@
-const Notification = require('../models/Notification');
-const User = require('../models/User');
-const emailService = require('./emailService');
-const logger = require('./../middleware/loggerMiddleware').logger;
+import Notification from '../models/Notification.js';
+import User from '../models/User.js';
+import emailService from './emailService.js';
+import logger from './../middleware/loggerMiddleware.js';
 
 // Notification utility functions
 const notificationUtils = {
@@ -1004,4 +1004,124 @@ const notificationUtils = {
     }
 };
 
-module.exports = notificationUtils;
+// Socket.IO Notification Handler
+const initializeSocket = (io) => {
+    if (!io) {
+        logger.error('Socket.io instance not provided');
+        return;
+    }
+
+    io.on('connection', (socket) => {
+        logger.info(`Socket connected: ${socket.id}`);
+
+        // Join user room
+        socket.on('join-user', (userId) => {
+            socket.join(`user-${userId}`);
+            logger.info(`User ${userId} joined their socket room`);
+        });
+
+        // Leave user room
+        socket.on('leave-user', (userId) => {
+            socket.leave(`user-${userId}`);
+        });
+
+        // Listen for notification read events
+        socket.on('notification-read', async (data) => {
+            try {
+                const { notificationId, userId } = data;
+                const result = await notificationUtils.markNotificationAsRead(notificationId, userId);
+                
+                if (result.success) {
+                    // Emit read confirmation
+                    socket.emit('notification-read-confirm', {
+                        notificationId,
+                        readAt: result.notification.readAt
+                    });
+                }
+            } catch (error) {
+                logger.error(`Socket notification read error: ${error.message}`);
+            }
+        });
+
+        // Listen for mark all as read
+        socket.on('mark-all-read', async (userId) => {
+            try {
+                const result = await notificationUtils.markAllNotificationsAsRead(userId);
+                if (result.success) {
+                    socket.emit('all-notifications-read', {
+                        count: result.modifiedCount
+                    });
+                }
+            } catch (error) {
+                logger.error(`Socket mark all read error: ${error.message}`);
+            }
+        });
+
+        // Listen for notification preferences update
+        socket.on('update-preferences', async (data) => {
+            try {
+                const { userId, preferences } = data;
+                const result = await notificationUtils.updateNotificationPreferences(userId, preferences);
+                
+                if (result.success) {
+                    socket.emit('preferences-updated', {
+                        preferences: result.preferences
+                    });
+                }
+            } catch (error) {
+                logger.error(`Socket update preferences error: ${error.message}`);
+            }
+        });
+
+        // Disconnect handler
+        socket.on('disconnect', () => {
+            logger.info(`Socket disconnected: ${socket.id}`);
+        });
+    });
+
+    logger.info('Socket.IO notification handler initialized');
+};
+
+// Function to emit notification via socket
+const emitNotification = (io, userId, notification) => {
+    if (!io || !userId) {
+        logger.error('Cannot emit notification: io or userId missing');
+        return false;
+    }
+
+    try {
+        io.to(`user-${userId}`).emit('new-notification', notification);
+        logger.info(`Notification emitted via socket to user ${userId}`);
+        return true;
+    } catch (error) {
+        logger.error(`Emit notification error: ${error.message}`);
+        return false;
+    }
+};
+
+// Function to emit notification count update
+const emitNotificationCount = (io, userId, count) => {
+    if (!io || !userId) {
+        logger.error('Cannot emit notification count: io or userId missing');
+        return false;
+    }
+
+    try {
+        io.to(`user-${userId}`).emit('notification-count-update', { count });
+        return true;
+    } catch (error) {
+        logger.error(`Emit notification count error: ${error.message}`);
+        return false;
+    }
+};
+
+// Export all functions
+export {
+    notificationUtils,
+    initializeSocket,
+    emitNotification,
+    emitNotificationCount
+};
+
+// Export default notificationUtils
+export default notificationUtils;

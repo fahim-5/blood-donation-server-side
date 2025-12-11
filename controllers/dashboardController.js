@@ -1,54 +1,12 @@
 // server/src/controllers/dashboardController.js
-const User = require('../models/User');
-const DonationRequest = require('../models/DonationRequest');
-const Funding = require('../models/Funding');
-const Contact = require('../models/Contact');
-const ActivityLog = require('../models/ActivityLog');
-const Notification = require('../models/Notification');
-const asyncHandler = require('../middleware/asyncHandler');
-const ErrorResponse = require('../utils/errorResponse');
-
-// @desc    Get role-based dashboard data
-// @route   GET /api/dashboard
-// @access  Private
-exports.getDashboard = asyncHandler(async (req, res, next) => {
-  const user = req.user;
-  let dashboardData = {};
-
-  switch (user.role) {
-    case 'admin':
-      dashboardData = await getAdminDashboard(user);
-      break;
-    case 'volunteer':
-      dashboardData = await getVolunteerDashboard(user);
-      break;
-    case 'donor':
-      dashboardData = await getDonorDashboard(user);
-      break;
-    default:
-      return next(new ErrorResponse('Invalid user role', 400));
-  }
-
-  // Log dashboard access
-  await ActivityLog.logActivity({
-    user: user._id,
-    userName: user.name,
-    userEmail: user.email,
-    userRole: user.role,
-    action: 'Accessed Dashboard',
-    actionType: 'read',
-    category: 'dashboard',
-    description: `Accessed ${user.role} dashboard`,
-    status: 'success',
-    userIp: req.ip,
-    userAgent: req.headers['user-agent'],
-  });
-
-  res.status(200).json({
-    success: true,
-    data: dashboardData,
-  });
-});
+import User from "../models/User.js";
+import DonationRequest from "../models/DonationRequest.js";
+import Funding from "../models/Funding.js";
+import Contact from "../models/Contact.js";
+import ActivityLog from "../models/ActivityLog.js";
+import Notification from "../models/Notification.js";
+import asyncHandler from "../middleware/asyncHandler.js";
+import ErrorResponse from "../utils/errorResponse.js";
 
 // Helper: Get admin dashboard data
 async function getAdminDashboard(user) {
@@ -77,11 +35,21 @@ async function getAdminDashboard(user) {
               $group: {
                 _id: null,
                 total: { $sum: 1 },
-                donors: { $sum: { $cond: [{ $eq: ['$role', 'donor'] }, 1, 0] } },
-                volunteers: { $sum: { $cond: [{ $eq: ['$role', 'volunteer'] }, 1, 0] } },
-                admins: { $sum: { $cond: [{ $eq: ['$role', 'admin'] }, 1, 0] } },
-                active: { $sum: { $cond: [{ $eq: ['$status', 'active'] }, 1, 0] } },
-                blocked: { $sum: { $cond: [{ $eq: ['$status', 'blocked'] }, 1, 0] } },
+                donors: {
+                  $sum: { $cond: [{ $eq: ["$role", "donor"] }, 1, 0] },
+                },
+                volunteers: {
+                  $sum: { $cond: [{ $eq: ["$role", "volunteer"] }, 1, 0] },
+                },
+                admins: {
+                  $sum: { $cond: [{ $eq: ["$role", "admin"] }, 1, 0] },
+                },
+                active: {
+                  $sum: { $cond: [{ $eq: ["$status", "active"] }, 1, 0] },
+                },
+                blocked: {
+                  $sum: { $cond: [{ $eq: ["$status", "blocked"] }, 1, 0] },
+                },
               },
             },
           ],
@@ -102,13 +70,13 @@ async function getAdminDashboard(user) {
             {
               $group: {
                 _id: {
-                  year: { $year: '$createdAt' },
-                  month: { $month: '$createdAt' },
+                  year: { $year: "$createdAt" },
+                  month: { $month: "$createdAt" },
                 },
                 count: { $sum: 1 },
               },
             },
-            { $sort: { '_id.year': -1, '_id.month': -1 } },
+            { $sort: { "_id.year": -1, "_id.month": -1 } },
             { $limit: 6 },
           ],
         },
@@ -127,11 +95,23 @@ async function getAdminDashboard(user) {
               $group: {
                 _id: null,
                 total: { $sum: 1 },
-                pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-                inProgress: { $sum: { $cond: [{ $eq: ['$status', 'inprogress'] }, 1, 0] } },
-                completed: { $sum: { $cond: [{ $eq: ['$status', 'done'] }, 1, 0] } },
-                canceled: { $sum: { $cond: [{ $eq: ['$status', 'canceled'] }, 1, 0] } },
-                urgent: { $sum: { $cond: [{ $in: ['$urgency', ['high', 'critical']] }, 1, 0] } },
+                pending: {
+                  $sum: { $cond: [{ $eq: ["$status", "pending"] }, 1, 0] },
+                },
+                inProgress: {
+                  $sum: { $cond: [{ $eq: ["$status", "inprogress"] }, 1, 0] },
+                },
+                completed: {
+                  $sum: { $cond: [{ $eq: ["$status", "done"] }, 1, 0] },
+                },
+                canceled: {
+                  $sum: { $cond: [{ $eq: ["$status", "canceled"] }, 1, 0] },
+                },
+                urgent: {
+                  $sum: {
+                    $cond: [{ $in: ["$urgency", ["high", "critical"]] }, 1, 0],
+                  },
+                },
               },
             },
           ],
@@ -151,9 +131,11 @@ async function getAdminDashboard(user) {
           byBloodGroup: [
             {
               $group: {
-                _id: '$bloodGroup',
+                _id: "$bloodGroup",
                 count: { $sum: 1 },
-                completed: { $sum: { $cond: [{ $eq: ['$status', 'done'] }, 1, 0] } },
+                completed: {
+                  $sum: { $cond: [{ $eq: ["$status", "done"] }, 1, 0] },
+                },
               },
             },
             { $sort: { count: -1 } },
@@ -162,9 +144,9 @@ async function getAdminDashboard(user) {
           byLocation: [
             {
               $group: {
-                _id: '$recipientDistrict',
+                _id: "$recipientDistrict",
                 count: { $sum: 1 },
-                upazilas: { $addToSet: '$recipientUpazila' },
+                upazilas: { $addToSet: "$recipientUpazila" },
               },
             },
             { $sort: { count: -1 } },
@@ -178,11 +160,8 @@ async function getAdminDashboard(user) {
     Funding.aggregate([
       {
         $match: {
-          status: 'succeeded',
-          $or: [
-            { refund: { $exists: false } },
-            { 'refund.amount': 0 },
-          ],
+          status: "succeeded",
+          $or: [{ refund: { $exists: false } }, { "refund.amount": 0 }],
         },
       },
       {
@@ -191,9 +170,9 @@ async function getAdminDashboard(user) {
             {
               $group: {
                 _id: null,
-                totalAmount: { $sum: '$amount' },
+                totalAmount: { $sum: "$amount" },
                 count: { $sum: 1 },
-                avgAmount: { $avg: '$amount' },
+                avgAmount: { $avg: "$amount" },
               },
             },
           ],
@@ -206,7 +185,7 @@ async function getAdminDashboard(user) {
             {
               $group: {
                 _id: null,
-                amount: { $sum: '$amount' },
+                amount: { $sum: "$amount" },
                 count: { $sum: 1 },
               },
             },
@@ -220,7 +199,7 @@ async function getAdminDashboard(user) {
             {
               $group: {
                 _id: null,
-                amount: { $sum: '$amount' },
+                amount: { $sum: "$amount" },
                 count: { $sum: 1 },
               },
             },
@@ -228,8 +207,8 @@ async function getAdminDashboard(user) {
           byType: [
             {
               $group: {
-                _id: '$donationType',
-                amount: { $sum: '$amount' },
+                _id: "$donationType",
+                amount: { $sum: "$amount" },
                 count: { $sum: 1 },
               },
             },
@@ -243,9 +222,9 @@ async function getAdminDashboard(user) {
             },
             {
               $group: {
-                _id: '$donor',
-                donorName: { $first: '$donorName' },
-                amount: { $sum: '$amount' },
+                _id: "$donor",
+                donorName: { $first: "$donorName" },
+                amount: { $sum: "$amount" },
                 count: { $sum: 1 },
               },
             },
@@ -265,11 +244,19 @@ async function getAdminDashboard(user) {
               $group: {
                 _id: null,
                 total: { $sum: 1 },
-                new: { $sum: { $cond: [{ $eq: ['$status', 'new'] }, 1, 0] } },
-                inProgress: { $sum: { $cond: [{ $eq: ['$status', 'in-progress'] }, 1, 0] } },
-                resolved: { $sum: { $cond: [{ $eq: ['$status', 'resolved'] }, 1, 0] } },
-                closed: { $sum: { $cond: [{ $eq: ['$status', 'closed'] }, 1, 0] } },
-                urgent: { $sum: { $cond: [{ $eq: ['$priority', 'urgent'] }, 1, 0] } },
+                new: { $sum: { $cond: [{ $eq: ["$status", "new"] }, 1, 0] } },
+                inProgress: {
+                  $sum: { $cond: [{ $eq: ["$status", "in-progress"] }, 1, 0] },
+                },
+                resolved: {
+                  $sum: { $cond: [{ $eq: ["$status", "resolved"] }, 1, 0] },
+                },
+                closed: {
+                  $sum: { $cond: [{ $eq: ["$status", "closed"] }, 1, 0] },
+                },
+                urgent: {
+                  $sum: { $cond: [{ $eq: ["$priority", "urgent"] }, 1, 0] },
+                },
               },
             },
           ],
@@ -289,7 +276,7 @@ async function getAdminDashboard(user) {
           byCategory: [
             {
               $group: {
-                _id: '$category',
+                _id: "$category",
                 count: { $sum: 1 },
               },
             },
@@ -298,15 +285,20 @@ async function getAdminDashboard(user) {
           responseTime: [
             {
               $match: {
-                status: { $in: ['resolved', 'closed'] },
-                'responses.0': { $exists: true },
+                status: { $in: ["resolved", "closed"] },
+                "responses.0": { $exists: true },
               },
             },
             {
               $project: {
                 responseHours: {
                   $divide: [
-                    { $subtract: [{ $arrayElemAt: ['$responses.sentAt', 0] }, '$createdAt'] },
+                    {
+                      $subtract: [
+                        { $arrayElemAt: ["$responses.sentAt", 0] },
+                        "$createdAt",
+                      ],
+                    },
                     1000 * 60 * 60,
                   ],
                 },
@@ -315,9 +307,9 @@ async function getAdminDashboard(user) {
             {
               $group: {
                 _id: null,
-                avgHours: { $avg: '$responseHours' },
-                minHours: { $min: '$responseHours' },
-                maxHours: { $max: '$responseHours' },
+                avgHours: { $avg: "$responseHours" },
+                minHours: { $min: "$responseHours" },
+                maxHours: { $max: "$responseHours" },
               },
             },
           ],
@@ -329,37 +321,37 @@ async function getAdminDashboard(user) {
     ActivityLog.find({})
       .sort({ createdAt: -1 })
       .limit(10)
-      .populate('user', 'name email avatar')
-      .populate('entityId'),
+      .populate("user", "name email avatar")
+      .populate("entityId"),
 
     // Urgent tasks
     Promise.all([
       // Urgent donation requests
       DonationRequest.find({
         isActive: true,
-        status: 'pending',
-        urgency: { $in: ['high', 'critical'] },
+        status: "pending",
+        urgency: { $in: ["high", "critical"] },
         donationDate: { $gte: new Date() },
       })
-        .populate('requester', 'name email')
+        .populate("requester", "name email")
         .sort({ urgency: -1, donationDate: 1 })
         .limit(5),
-      
+
       // Unassigned contacts
       Contact.find({
         assignedTo: null,
-        status: { $in: ['new', 'in-progress'] },
-        priority: { $in: ['high', 'urgent'] },
+        status: { $in: ["new", "in-progress"] },
+        priority: { $in: ["high", "urgent"] },
       })
         .sort({ priority: -1, createdAt: -1 })
         .limit(5),
-      
+
       // Pending fundings (needing verification)
       Funding.find({
-        status: 'pending',
+        status: "pending",
         isVerified: false,
       })
-        .populate('donor', 'name email')
+        .populate("donor", "name email")
         .sort({ createdAt: -1 })
         .limit(5),
     ]),
@@ -368,29 +360,29 @@ async function getAdminDashboard(user) {
     Promise.all([
       // Error logs in last 24 hours
       ActivityLog.countDocuments({
-        severity: { $in: ['error', 'critical'] },
+        severity: { $in: ["error", "critical"] },
         createdAt: { $gte: new Date(Date.now() - 24 * 60 * 60 * 1000) },
       }),
-      
+
       // Unread notifications count
       Notification.countDocuments({
         recipient: user._id,
-        status: 'unread',
+        status: "unread",
       }),
-      
+
       // System performance metrics
       ActivityLog.aggregate([
         {
           $match: {
             createdAt: { $gte: startOfToday },
-            'performance.duration': { $gt: 0 },
+            "performance.duration": { $gt: 0 },
           },
         },
         {
           $group: {
             _id: null,
-            avgResponseTime: { $avg: '$performance.duration' },
-            maxResponseTime: { $max: '$performance.duration' },
+            avgResponseTime: { $avg: "$performance.duration" },
+            maxResponseTime: { $max: "$performance.duration" },
             totalRequests: { $sum: 1 },
           },
         },
@@ -401,31 +393,31 @@ async function getAdminDashboard(user) {
     Promise.all([
       // Top donors (by donations)
       User.find({
-        role: 'donor',
+        role: "donor",
         totalDonations: { $gt: 0 },
       })
         .sort({ totalDonations: -1 })
         .limit(5)
-        .select('name email avatar bloodGroup totalDonations lastDonationDate'),
-      
+        .select("name email avatar bloodGroup totalDonations lastDonationDate"),
+
       // Top volunteers (by resolved contacts)
       User.aggregate([
         {
           $match: {
-            role: 'volunteer',
+            role: "volunteer",
           },
         },
         {
           $lookup: {
-            from: 'contacts',
-            let: { volunteerId: '$_id' },
+            from: "contacts",
+            let: { volunteerId: "$_id" },
             pipeline: [
               {
                 $match: {
                   $expr: {
                     $and: [
-                      { $eq: ['$assignedTo', '$$volunteerId'] },
-                      { $in: ['$status', ['resolved', 'closed']] },
+                      { $eq: ["$assignedTo", "$$volunteerId"] },
+                      { $in: ["$status", ["resolved", "closed"]] },
                     ],
                   },
                 },
@@ -437,20 +429,20 @@ async function getAdminDashboard(user) {
                 },
               },
             ],
-            as: 'contactStats',
+            as: "contactStats",
           },
         },
         {
           $lookup: {
-            from: 'donationrequests',
-            let: { volunteerId: '$_id' },
+            from: "donationrequests",
+            let: { volunteerId: "$_id" },
             pipeline: [
               {
                 $match: {
                   $expr: {
                     $and: [
-                      { $in: ['$$volunteerId', '$statusHistory.changedBy'] },
-                      { $eq: ['$status', 'done'] },
+                      { $in: ["$$volunteerId", "$statusHistory.changedBy"] },
+                      { $eq: ["$status", "done"] },
                     ],
                   },
                 },
@@ -462,7 +454,7 @@ async function getAdminDashboard(user) {
                 },
               },
             ],
-            as: 'donationStats',
+            as: "donationStats",
           },
         },
         {
@@ -471,15 +463,36 @@ async function getAdminDashboard(user) {
             email: 1,
             avatar: 1,
             resolvedContacts: {
-              $ifNull: [{ $arrayElemAt: ['$contactStats.resolvedCount', 0] }, 0],
+              $ifNull: [
+                { $arrayElemAt: ["$contactStats.resolvedCount", 0] },
+                0,
+              ],
             },
             completedDonations: {
-              $ifNull: [{ $arrayElemAt: ['$donationStats.donationCount', 0] }, 0],
+              $ifNull: [
+                { $arrayElemAt: ["$donationStats.donationCount", 0] },
+                0,
+              ],
             },
             totalScore: {
               $add: [
-                { $ifNull: [{ $arrayElemAt: ['$contactStats.resolvedCount', 0] }, 0] },
-                { $multiply: [{ $ifNull: [{ $arrayElemAt: ['$donationStats.donationCount', 0] }, 0] }, 2] },
+                {
+                  $ifNull: [
+                    { $arrayElemAt: ["$contactStats.resolvedCount", 0] },
+                    0,
+                  ],
+                },
+                {
+                  $multiply: [
+                    {
+                      $ifNull: [
+                        { $arrayElemAt: ["$donationStats.donationCount", 0] },
+                        0,
+                      ],
+                    },
+                    2,
+                  ],
+                },
               ],
             },
           },
@@ -494,15 +507,21 @@ async function getAdminDashboard(user) {
   const dashboard = {
     summary: {
       users: userStats[0].totals.length > 0 ? userStats[0].totals[0] : null,
-      donations: donationStats[0].totals.length > 0 ? donationStats[0].totals[0] : null,
-      funding: fundingStats[0].totals.length > 0 ? fundingStats[0].totals[0] : null,
-      contacts: contactStats[0].totals.length > 0 ? contactStats[0].totals[0] : null,
+      donations:
+        donationStats[0].totals.length > 0 ? donationStats[0].totals[0] : null,
+      funding:
+        fundingStats[0].totals.length > 0 ? fundingStats[0].totals[0] : null,
+      contacts:
+        contactStats[0].totals.length > 0 ? contactStats[0].totals[0] : null,
     },
     today: {
       users: userStats[0].today.length > 0 ? userStats[0].today[0].count : 0,
-      donations: donationStats[0].today.length > 0 ? donationStats[0].today[0].count : 0,
-      funding: fundingStats[0].today.length > 0 ? fundingStats[0].today[0] : null,
-      contacts: contactStats[0].today.length > 0 ? contactStats[0].today[0].count : 0,
+      donations:
+        donationStats[0].today.length > 0 ? donationStats[0].today[0].count : 0,
+      funding:
+        fundingStats[0].today.length > 0 ? fundingStats[0].today[0] : null,
+      contacts:
+        contactStats[0].today.length > 0 ? contactStats[0].today[0].count : 0,
     },
     analytics: {
       userGrowth: userStats[0].growth,
@@ -510,14 +529,18 @@ async function getAdminDashboard(user) {
       locationDistribution: donationStats[0].byLocation,
       fundingByType: fundingStats[0].byType,
       contactByCategory: contactStats[0].byCategory,
-      responseTime: contactStats[0].responseTime.length > 0 ? contactStats[0].responseTime[0] : null,
+      responseTime:
+        contactStats[0].responseTime.length > 0
+          ? contactStats[0].responseTime[0]
+          : null,
     },
     recentActivities,
     urgentTasks: {
       donations: urgentTasks[0],
       contacts: urgentTasks[1],
       fundings: urgentTasks[2],
-      total: urgentTasks[0].length + urgentTasks[1].length + urgentTasks[2].length,
+      total:
+        urgentTasks[0].length + urgentTasks[1].length + urgentTasks[2].length,
     },
     systemHealth: {
       errorsLast24h: systemHealth[0],
@@ -528,15 +551,24 @@ async function getAdminDashboard(user) {
       donors: topPerformers[0],
       volunteers: topPerformers[1],
     },
-    weeklyStats: fundingStats[0].thisWeek.length > 0 ? fundingStats[0].thisWeek[0] : null,
+    weeklyStats:
+      fundingStats[0].thisWeek.length > 0 ? fundingStats[0].thisWeek[0] : null,
     topFundingDonors: fundingStats[0].topDonors,
     quickActions: [
-      { label: 'View All Users', url: '/dashboard/all-users', icon: '👥' },
-      { label: 'Manage Donations', url: '/dashboard/all-blood-donation-request', icon: '🩸' },
-      { label: 'View Contacts', url: '/dashboard/contacts', icon: '📧' },
-      { label: 'Funding Stats', url: '/dashboard/funding', icon: '💰' },
-      { label: 'System Logs', url: '/dashboard/logs', icon: '📊' },
-      { label: 'Send Announcement', url: '/dashboard/announcements', icon: '📢' },
+      { label: "View All Users", url: "/dashboard/all-users", icon: "👥" },
+      {
+        label: "Manage Donations",
+        url: "/dashboard/all-blood-donation-request",
+        icon: "🩸",
+      },
+      { label: "View Contacts", url: "/dashboard/contacts", icon: "📧" },
+      { label: "Funding Stats", url: "/dashboard/funding", icon: "💰" },
+      { label: "System Logs", url: "/dashboard/logs", icon: "📊" },
+      {
+        label: "Send Announcement",
+        url: "/dashboard/announcements",
+        icon: "📢",
+      },
     ],
   };
 
@@ -561,7 +593,7 @@ async function getVolunteerDashboard(user) {
     // Contacts assigned to volunteer
     Contact.find({
       assignedTo: user._id,
-      status: { $in: ['new', 'in-progress', 'read'] },
+      status: { $in: ["new", "in-progress", "read"] },
     })
       .sort({ priority: -1, createdAt: -1 })
       .limit(5),
@@ -569,19 +601,19 @@ async function getVolunteerDashboard(user) {
     // Pending donation requests in volunteer's area
     DonationRequest.find({
       isActive: true,
-      status: 'pending',
+      status: "pending",
       recipientDistrict: user.district,
       donationDate: { $gte: new Date() },
     })
-      .populate('requester', 'name email')
+      .populate("requester", "name email")
       .sort({ urgency: -1, donationDate: 1 })
       .limit(5),
 
     // Urgent requests (all areas)
     DonationRequest.find({
       isActive: true,
-      status: 'pending',
-      urgency: { $in: ['high', 'critical'] },
+      status: "pending",
+      urgency: { $in: ["high", "critical"] },
       donationDate: { $gte: new Date() },
     })
       .sort({ urgency: -1, donationDate: 1 })
@@ -590,16 +622,16 @@ async function getVolunteerDashboard(user) {
     // Volunteer's recent activities
     ActivityLog.find({
       user: user._id,
-      category: { $in: ['donation', 'contact'] },
+      category: { $in: ["donation", "contact"] },
     })
       .sort({ createdAt: -1 })
       .limit(10)
-      .populate('entityId'),
+      .populate("entityId"),
 
     // Donor availability in volunteer's area
     User.find({
-      role: 'donor',
-      status: 'active',
+      role: "donor",
+      status: "active",
       district: user.district,
       isAvailable: true,
       $or: [
@@ -611,7 +643,7 @@ async function getVolunteerDashboard(user) {
         },
       ],
     })
-      .select('name bloodGroup upazila lastDonationDate')
+      .select("name bloodGroup upazila lastDonationDate")
       .limit(5),
 
     // Volunteer statistics
@@ -619,29 +651,32 @@ async function getVolunteerDashboard(user) {
       // Contacts resolved this week
       Contact.countDocuments({
         assignedTo: user._id,
-        status: { $in: ['resolved', 'closed'] },
+        status: { $in: ["resolved", "closed"] },
         updatedAt: { $gte: startOfWeek },
       }),
-      
+
       // Donations helped complete this week
       DonationRequest.countDocuments({
-        'statusHistory.changedBy': user._id,
-        status: 'done',
-        'statusHistory.changedAt': { $gte: startOfWeek },
+        "statusHistory.changedBy": user._id,
+        status: "done",
+        "statusHistory.changedAt": { $gte: startOfWeek },
       }),
-      
+
       // Active assignments
       Contact.countDocuments({
         assignedTo: user._id,
-        status: { $in: ['new', 'in-progress', 'read'] },
+        status: { $in: ["new", "in-progress", "read"] },
       }),
     ]),
 
     // Upcoming follow-ups
     Contact.find({
       assignedTo: user._id,
-      followUpDate: { $gte: new Date(), $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) },
-      status: { $in: ['in-progress', 'read'] },
+      followUpDate: {
+        $gte: new Date(),
+        $lte: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      },
+      status: { $in: ["in-progress", "read"] },
     })
       .sort({ followUpDate: 1 })
       .limit(5),
@@ -652,9 +687,14 @@ async function getVolunteerDashboard(user) {
       assignedContacts: volunteerStats[2],
       resolvedThisWeek: volunteerStats[0],
       donationsHelped: volunteerStats[1],
-      completionRate: volunteerStats[0] + volunteerStats[1] > 0 
-        ? Math.round(((volunteerStats[0] + volunteerStats[1]) / (volunteerStats[2] || 1)) * 100) 
-        : 0,
+      completionRate:
+        volunteerStats[0] + volunteerStats[1] > 0
+          ? Math.round(
+              ((volunteerStats[0] + volunteerStats[1]) /
+                (volunteerStats[2] || 1)) *
+                100
+            )
+          : 0,
     },
     tasks: {
       assignedContacts,
@@ -668,11 +708,19 @@ async function getVolunteerDashboard(user) {
     },
     recentActivities,
     quickActions: [
-      { label: 'View All Requests', url: '/dashboard/all-blood-donation-request', icon: '🔍' },
-      { label: 'My Assignments', url: '/dashboard/assigned-contacts', icon: '📋' },
-      { label: 'Find Donors', url: '/dashboard/search-donors', icon: '👥' },
-      { label: 'Urgent Tasks', url: '/dashboard/urgent-tasks', icon: '🚨' },
-      { label: 'Activity Log', url: '/dashboard/activity-log', icon: '📝' },
+      {
+        label: "View All Requests",
+        url: "/dashboard/all-blood-donation-request",
+        icon: "🔍",
+      },
+      {
+        label: "My Assignments",
+        url: "/dashboard/assigned-contacts",
+        icon: "📋",
+      },
+      { label: "Find Donors", url: "/dashboard/search-donors", icon: "👥" },
+      { label: "Urgent Tasks", url: "/dashboard/urgent-tasks", icon: "🚨" },
+      { label: "Activity Log", url: "/dashboard/activity-log", icon: "📝" },
     ],
   };
 
@@ -700,39 +748,41 @@ async function getDonorDashboard(user) {
     })
       .sort({ donationDate: -1 })
       .limit(3)
-      .select('recipientName recipientLocation donationDate donationTime bloodGroup status'),
+      .select(
+        "recipientName recipientLocation donationDate donationTime bloodGroup status"
+      ),
 
     // Donor's donation history
     DonationRequest.find({
       donor: user._id,
       isActive: true,
-      status: 'done',
+      status: "done",
     })
-      .populate('requester', 'name')
+      .populate("requester", "name")
       .sort({ donationDate: -1 })
       .limit(3)
-      .select('recipientName donationDate bloodGroup hospitalName'),
+      .select("recipientName donationDate bloodGroup hospitalName"),
 
     // Donor's funding history
     Funding.find({
       donor: user._id,
-      status: 'succeeded',
+      status: "succeeded",
     })
       .sort({ transactionDate: -1 })
       .limit(3)
-      .select('amount currency transactionDate message'),
+      .select("amount currency transactionDate message"),
 
     // Donor eligibility
     (async () => {
       let isEligible = true;
-      let message = 'You are eligible to donate';
+      let message = "You are eligible to donate";
       let nextEligibleDate = null;
-      
+
       if (user.lastDonationDate) {
         const daysSinceLastDonation = Math.floor(
           (new Date() - new Date(user.lastDonationDate)) / (1000 * 60 * 60 * 24)
         );
-        
+
         if (daysSinceLastDonation < 90) {
           isEligible = false;
           nextEligibleDate = new Date(user.lastDonationDate);
@@ -740,7 +790,7 @@ async function getDonorDashboard(user) {
           message = `You can donate again after ${nextEligibleDate.toLocaleDateString()}`;
         }
       }
-      
+
       return {
         isEligible,
         message,
@@ -753,14 +803,14 @@ async function getDonorDashboard(user) {
     // Nearby donation requests matching donor's blood group
     DonationRequest.find({
       isActive: true,
-      status: 'pending',
+      status: "pending",
       bloodGroup: user.bloodGroup,
       recipientDistrict: user.district,
       donationDate: { $gte: new Date() },
     })
       .sort({ urgency: -1, donationDate: 1 })
       .limit(3)
-      .select('recipientName hospitalName donationDate donationTime urgency'),
+      .select("recipientName hospitalName donationDate donationTime urgency"),
 
     // Recent notifications
     Notification.find({
@@ -768,14 +818,14 @@ async function getDonorDashboard(user) {
     })
       .sort({ createdAt: -1 })
       .limit(5)
-      .select('title message type createdAt readAt'),
+      .select("title message type createdAt readAt"),
 
     // Quick statistics
     Promise.all([
       DonationRequest.countDocuments({ requester: user._id, isActive: true }),
-      DonationRequest.countDocuments({ donor: user._id, status: 'done' }),
-      Funding.countDocuments({ donor: user._id, status: 'succeeded' }),
-      Notification.countDocuments({ recipient: user._id, status: 'unread' }),
+      DonationRequest.countDocuments({ donor: user._id, status: "done" }),
+      Funding.countDocuments({ donor: user._id, status: "succeeded" }),
+      Notification.countDocuments({ recipient: user._id, status: "unread" }),
     ]),
   ]);
 
@@ -804,37 +854,39 @@ async function getDonorDashboard(user) {
     },
     notifications,
     quickActions: [
-      { 
-        label: 'Create Donation Request', 
-        url: '/dashboard/create-donation-request', 
-        icon: '🆕',
-        disabled: user.status === 'blocked' 
+      {
+        label: "Create Donation Request",
+        url: "/dashboard/create-donation-request",
+        icon: "🆕",
+        disabled: user.status === "blocked",
       },
-      { 
-        label: 'View My Requests', 
-        url: '/dashboard/my-donation-requests', 
-        icon: '📋' 
+      {
+        label: "View My Requests",
+        url: "/dashboard/my-donation-requests",
+        icon: "📋",
       },
-      { 
-        label: 'Donation History', 
-        url: '/dashboard/donation-history', 
-        icon: '📊' 
+      {
+        label: "Donation History",
+        url: "/dashboard/donation-history",
+        icon: "📊",
       },
-      { 
-        label: 'Make a Donation', 
-        url: '/dashboard/funding', 
-        icon: '💰' 
+      {
+        label: "Make a Donation",
+        url: "/dashboard/funding",
+        icon: "💰",
       },
-      { 
-        label: 'Update Profile', 
-        url: '/dashboard/profile', 
-        icon: '👤' 
+      {
+        label: "Update Profile",
+        url: "/dashboard/profile",
+        icon: "👤",
       },
-      { 
-        label: eligibility.isEligible ? 'Mark as Available' : 'Mark as Unavailable', 
-        url: '/dashboard/toggle-availability', 
-        icon: '🔄',
-        action: 'toggleAvailability' 
+      {
+        label: eligibility.isEligible
+          ? "Mark as Available"
+          : "Mark as Unavailable",
+        url: "/dashboard/toggle-availability",
+        icon: "🔄",
+        action: "toggleAvailability",
       },
     ],
   };
@@ -842,73 +894,16 @@ async function getDonorDashboard(user) {
   return dashboard;
 }
 
-// @desc    Get dashboard statistics for charts
-// @route   GET /api/dashboard/stats/:type
-// @access  Private
-exports.getDashboardStats = asyncHandler(async (req, res, next) => {
-  const { type } = req.params;
-  const { period = 'month', year = new Date().getFullYear() } = req.query;
-
-  let startDate, endDate;
-  const currentDate = new Date();
-
-  switch (period) {
-    case 'day':
-      startDate = new Date(currentDate.setHours(0, 0, 0, 0));
-      endDate = new Date(currentDate.setHours(23, 59, 59, 999));
-      break;
-    case 'week':
-      startDate = new Date(currentDate.setDate(currentDate.getDate() - 7));
-      endDate = new Date();
-      break;
-    case 'month':
-      startDate = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-      endDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0, 23, 59, 59, 999);
-      break;
-    case 'year':
-      startDate = new Date(year, 0, 1);
-      endDate = new Date(year, 11, 31, 23, 59, 59, 999);
-      break;
-    default:
-      startDate = new Date(currentDate.setDate(currentDate.getDate() - 30));
-      endDate = new Date();
-  }
-
-  let stats = {};
-
-  switch (type) {
-    case 'donations':
-      stats = await getDonationStats(startDate, endDate, period);
-      break;
-    case 'users':
-      stats = await getUserStats(startDate, endDate, period);
-      break;
-    case 'funding':
-      stats = await getFundingStats(startDate, endDate, period);
-      break;
-    case 'contacts':
-      stats = await getContactStats(startDate, endDate, period);
-      break;
-    default:
-      return next(new ErrorResponse('Invalid stats type', 400));
-  }
-
-  res.status(200).json({
-    success: true,
-    period: {
-      type: period,
-      start: startDate,
-      end: endDate,
-    },
-    data: stats,
-  });
-});
-
 // Helper: Get donation statistics for charts
 async function getDonationStats(startDate, endDate, period) {
-  const groupFormat = period === 'day' ? '%Y-%m-%d' : 
-                     period === 'week' ? '%Y-%U' : 
-                     period === 'year' ? '%Y' : '%Y-%m';
+  const groupFormat =
+    period === "day"
+      ? "%Y-%m-%d"
+      : period === "week"
+      ? "%Y-%U"
+      : period === "year"
+      ? "%Y"
+      : "%Y-%m";
 
   const stats = await DonationRequest.aggregate([
     {
@@ -920,27 +915,27 @@ async function getDonationStats(startDate, endDate, period) {
     {
       $group: {
         _id: {
-          date: { $dateToString: { format: groupFormat, date: '$createdAt' } },
-          status: '$status',
-          bloodGroup: '$bloodGroup',
+          date: { $dateToString: { format: groupFormat, date: "$createdAt" } },
+          status: "$status",
+          bloodGroup: "$bloodGroup",
         },
         count: { $sum: 1 },
       },
     },
     {
       $group: {
-        _id: '$_id.date',
-        total: { $sum: '$count' },
+        _id: "$_id.date",
+        total: { $sum: "$count" },
         byStatus: {
           $push: {
-            status: '$_id.status',
-            count: '$count',
+            status: "$_id.status",
+            count: "$count",
           },
         },
         byBloodGroup: {
           $push: {
-            bloodGroup: '$_id.bloodGroup',
-            count: '$count',
+            bloodGroup: "$_id.bloodGroup",
+            count: "$count",
           },
         },
       },
@@ -950,16 +945,17 @@ async function getDonationStats(startDate, endDate, period) {
 
   // Format for charts
   const chartData = {
-    timeline: stats.map(item => ({
+    timeline: stats.map((item) => ({
       date: item._id,
       total: item.total,
-      pending: item.byStatus.find(s => s.status === 'pending')?.count || 0,
-      inprogress: item.byStatus.find(s => s.status === 'inprogress')?.count || 0,
-      done: item.byStatus.find(s => s.status === 'done')?.count || 0,
-      canceled: item.byStatus.find(s => s.status === 'canceled')?.count || 0,
+      pending: item.byStatus.find((s) => s.status === "pending")?.count || 0,
+      inprogress:
+        item.byStatus.find((s) => s.status === "inprogress")?.count || 0,
+      done: item.byStatus.find((s) => s.status === "done")?.count || 0,
+      canceled: item.byStatus.find((s) => s.status === "canceled")?.count || 0,
     })),
     bloodGroups: stats.reduce((acc, item) => {
-      item.byBloodGroup.forEach(bg => {
+      item.byBloodGroup.forEach((bg) => {
         if (!acc[bg.bloodGroup]) {
           acc[bg.bloodGroup] = 0;
         }
@@ -974,9 +970,14 @@ async function getDonationStats(startDate, endDate, period) {
 
 // Helper: Get user statistics for charts
 async function getUserStats(startDate, endDate, period) {
-  const groupFormat = period === 'day' ? '%Y-%m-%d' : 
-                     period === 'week' ? '%Y-%U' : 
-                     period === 'year' ? '%Y' : '%Y-%m';
+  const groupFormat =
+    period === "day"
+      ? "%Y-%m-%d"
+      : period === "week"
+      ? "%Y-%U"
+      : period === "year"
+      ? "%Y"
+      : "%Y-%m";
 
   const stats = await User.aggregate([
     {
@@ -987,27 +988,27 @@ async function getUserStats(startDate, endDate, period) {
     {
       $group: {
         _id: {
-          date: { $dateToString: { format: groupFormat, date: '$createdAt' } },
-          role: '$role',
-          status: '$status',
+          date: { $dateToString: { format: groupFormat, date: "$createdAt" } },
+          role: "$role",
+          status: "$status",
         },
         count: { $sum: 1 },
       },
     },
     {
       $group: {
-        _id: '$_id.date',
-        total: { $sum: '$count' },
+        _id: "$_id.date",
+        total: { $sum: "$count" },
         byRole: {
           $push: {
-            role: '$_id.role',
-            count: '$count',
+            role: "$_id.role",
+            count: "$count",
           },
         },
         byStatus: {
           $push: {
-            status: '$_id.status',
-            count: '$count',
+            status: "$_id.status",
+            count: "$count",
           },
         },
       },
@@ -1016,17 +1017,17 @@ async function getUserStats(startDate, endDate, period) {
   ]);
 
   const chartData = {
-    timeline: stats.map(item => ({
+    timeline: stats.map((item) => ({
       date: item._id,
       total: item.total,
-      donors: item.byRole.find(r => r.role === 'donor')?.count || 0,
-      volunteers: item.byRole.find(r => r.role === 'volunteer')?.count || 0,
-      admins: item.byRole.find(r => r.role === 'admin')?.count || 0,
-      active: item.byStatus.find(s => s.status === 'active')?.count || 0,
-      blocked: item.byStatus.find(s => s.status === 'blocked')?.count || 0,
+      donors: item.byRole.find((r) => r.role === "donor")?.count || 0,
+      volunteers: item.byRole.find((r) => r.role === "volunteer")?.count || 0,
+      admins: item.byRole.find((r) => r.role === "admin")?.count || 0,
+      active: item.byStatus.find((s) => s.status === "active")?.count || 0,
+      blocked: item.byStatus.find((s) => s.status === "blocked")?.count || 0,
     })),
     roleDistribution: stats.reduce((acc, item) => {
-      item.byRole.forEach(role => {
+      item.byRole.forEach((role) => {
         if (!acc[role.role]) {
           acc[role.role] = 0;
         }
@@ -1035,7 +1036,7 @@ async function getUserStats(startDate, endDate, period) {
       return acc;
     }, {}),
     statusDistribution: stats.reduce((acc, item) => {
-      item.byStatus.forEach(status => {
+      item.byStatus.forEach((status) => {
         if (!acc[status.status]) {
           acc[status.status] = 0;
         }
@@ -1050,49 +1051,53 @@ async function getUserStats(startDate, endDate, period) {
 
 // Helper: Get funding statistics for charts
 async function getFundingStats(startDate, endDate, period) {
-  const groupFormat = period === 'day' ? '%Y-%m-%d' : 
-                     period === 'week' ? '%Y-%U' : 
-                     period === 'year' ? '%Y' : '%Y-%m';
+  const groupFormat =
+    period === "day"
+      ? "%Y-%m-%d"
+      : period === "week"
+      ? "%Y-%U"
+      : period === "year"
+      ? "%Y"
+      : "%Y-%m";
 
   const stats = await Funding.aggregate([
     {
       $match: {
-        status: 'succeeded',
+        status: "succeeded",
         transactionDate: { $gte: startDate, $lte: endDate },
-        $or: [
-          { refund: { $exists: false } },
-          { 'refund.amount': 0 },
-        ],
+        $or: [{ refund: { $exists: false } }, { "refund.amount": 0 }],
       },
     },
     {
       $group: {
         _id: {
-          date: { $dateToString: { format: groupFormat, date: '$transactionDate' } },
-          donationType: '$donationType',
-          isAnonymous: '$isAnonymous',
+          date: {
+            $dateToString: { format: groupFormat, date: "$transactionDate" },
+          },
+          donationType: "$donationType",
+          isAnonymous: "$isAnonymous",
         },
-        amount: { $sum: '$amount' },
+        amount: { $sum: "$amount" },
         count: { $sum: 1 },
       },
     },
     {
       $group: {
-        _id: '$_id.date',
-        totalAmount: { $sum: '$amount' },
-        totalCount: { $sum: '$count' },
+        _id: "$_id.date",
+        totalAmount: { $sum: "$amount" },
+        totalCount: { $sum: "$count" },
         byType: {
           $push: {
-            type: '$_id.donationType',
-            amount: '$amount',
-            count: '$count',
+            type: "$_id.donationType",
+            amount: "$amount",
+            count: "$count",
           },
         },
         anonymity: {
           $push: {
-            isAnonymous: '$_id.isAnonymous',
-            amount: '$amount',
-            count: '$count',
+            isAnonymous: "$_id.isAnonymous",
+            amount: "$amount",
+            count: "$count",
           },
         },
       },
@@ -1101,14 +1106,14 @@ async function getFundingStats(startDate, endDate, period) {
   ]);
 
   const chartData = {
-    timeline: stats.map(item => ({
+    timeline: stats.map((item) => ({
       date: item._id,
       amount: item.totalAmount,
       count: item.totalCount,
       avgAmount: item.totalCount > 0 ? item.totalAmount / item.totalCount : 0,
     })),
     byType: stats.reduce((acc, item) => {
-      item.byType.forEach(type => {
+      item.byType.forEach((type) => {
         if (!acc[type.type]) {
           acc[type.type] = { amount: 0, count: 0 };
         }
@@ -1118,8 +1123,8 @@ async function getFundingStats(startDate, endDate, period) {
       return acc;
     }, {}),
     anonymity: stats.reduce((acc, item) => {
-      item.anonymity.forEach(anon => {
-        const key = anon.isAnonymous ? 'anonymous' : 'named';
+      item.anonymity.forEach((anon) => {
+        const key = anon.isAnonymous ? "anonymous" : "named";
         if (!acc[key]) {
           acc[key] = { amount: 0, count: 0 };
         }
@@ -1135,9 +1140,14 @@ async function getFundingStats(startDate, endDate, period) {
 
 // Helper: Get contact statistics for charts
 async function getContactStats(startDate, endDate, period) {
-  const groupFormat = period === 'day' ? '%Y-%m-%d' : 
-                     period === 'week' ? '%Y-%U' : 
-                     period === 'year' ? '%Y' : '%Y-%m';
+  const groupFormat =
+    period === "day"
+      ? "%Y-%m-%d"
+      : period === "week"
+      ? "%Y-%U"
+      : period === "year"
+      ? "%Y"
+      : "%Y-%m";
 
   const stats = await Contact.aggregate([
     {
@@ -1148,34 +1158,34 @@ async function getContactStats(startDate, endDate, period) {
     {
       $group: {
         _id: {
-          date: { $dateToString: { format: groupFormat, date: '$createdAt' } },
-          status: '$status',
-          category: '$category',
-          priority: '$priority',
+          date: { $dateToString: { format: groupFormat, date: "$createdAt" } },
+          status: "$status",
+          category: "$category",
+          priority: "$priority",
         },
         count: { $sum: 1 },
       },
     },
     {
       $group: {
-        _id: '$_id.date',
-        total: { $sum: '$count' },
+        _id: "$_id.date",
+        total: { $sum: "$count" },
         byStatus: {
           $push: {
-            status: '$_id.status',
-            count: '$count',
+            status: "$_id.status",
+            count: "$count",
           },
         },
         byCategory: {
           $push: {
-            category: '$_id.category',
-            count: '$count',
+            category: "$_id.category",
+            count: "$count",
           },
         },
         byPriority: {
           $push: {
-            priority: '$_id.priority',
-            count: '$count',
+            priority: "$_id.priority",
+            count: "$count",
           },
         },
       },
@@ -1184,16 +1194,17 @@ async function getContactStats(startDate, endDate, period) {
   ]);
 
   const chartData = {
-    timeline: stats.map(item => ({
+    timeline: stats.map((item) => ({
       date: item._id,
       total: item.total,
-      new: item.byStatus.find(s => s.status === 'new')?.count || 0,
-      inProgress: item.byStatus.find(s => s.status === 'in-progress')?.count || 0,
-      resolved: item.byStatus.find(s => s.status === 'resolved')?.count || 0,
-      closed: item.byStatus.find(s => s.status === 'closed')?.count || 0,
+      new: item.byStatus.find((s) => s.status === "new")?.count || 0,
+      inProgress:
+        item.byStatus.find((s) => s.status === "in-progress")?.count || 0,
+      resolved: item.byStatus.find((s) => s.status === "resolved")?.count || 0,
+      closed: item.byStatus.find((s) => s.status === "closed")?.count || 0,
     })),
     byCategory: stats.reduce((acc, item) => {
-      item.byCategory.forEach(cat => {
+      item.byCategory.forEach((cat) => {
         if (!acc[cat.category]) {
           acc[cat.category] = 0;
         }
@@ -1202,7 +1213,7 @@ async function getContactStats(startDate, endDate, period) {
       return acc;
     }, {}),
     byPriority: stats.reduce((acc, item) => {
-      item.byPriority.forEach(pri => {
+      item.byPriority.forEach((pri) => {
         if (!acc[pri.priority]) {
           acc[pri.priority] = 0;
         }
@@ -1215,17 +1226,133 @@ async function getContactStats(startDate, endDate, period) {
   return chartData;
 }
 
+// @desc    Get role-based dashboard data
+// @route   GET /api/dashboard
+// @access  Private
+const getDashboard = asyncHandler(async (req, res, next) => {
+  const user = req.user;
+  let dashboardData = {};
+
+  switch (user.role) {
+    case "admin":
+      dashboardData = await getAdminDashboard(user);
+      break;
+    case "volunteer":
+      dashboardData = await getVolunteerDashboard(user);
+      break;
+    case "donor":
+      dashboardData = await getDonorDashboard(user);
+      break;
+    default:
+      return next(new ErrorResponse("Invalid user role", 400));
+  }
+
+  // Log dashboard access
+  await ActivityLog.logActivity({
+    user: user._id,
+    userName: user.name,
+    userEmail: user.email,
+    userRole: user.role,
+    action: "Accessed Dashboard",
+    actionType: "read",
+    category: "dashboard",
+    description: `Accessed ${user.role} dashboard`,
+    status: "success",
+    userIp: req.ip,
+    userAgent: req.headers["user-agent"],
+  });
+
+  res.status(200).json({
+    success: true,
+    data: dashboardData,
+  });
+});
+
+// @desc    Get dashboard statistics for charts
+// @route   GET /api/dashboard/stats/:type
+// @access  Private
+const getDashboardStats = asyncHandler(async (req, res, next) => {
+  const { type } = req.params;
+  const { period = "month", year = new Date().getFullYear() } = req.query;
+
+  let startDate, endDate;
+  const currentDate = new Date();
+
+  switch (period) {
+    case "day":
+      startDate = new Date(currentDate.setHours(0, 0, 0, 0));
+      endDate = new Date(currentDate.setHours(23, 59, 59, 999));
+      break;
+    case "week":
+      startDate = new Date(currentDate.setDate(currentDate.getDate() - 7));
+      endDate = new Date();
+      break;
+    case "month":
+      startDate = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth(),
+        1
+      );
+      endDate = new Date(
+        currentDate.getFullYear(),
+        currentDate.getMonth() + 1,
+        0,
+        23,
+        59,
+        59,
+        999
+      );
+      break;
+    case "year":
+      startDate = new Date(year, 0, 1);
+      endDate = new Date(year, 11, 31, 23, 59, 59, 999);
+      break;
+    default:
+      startDate = new Date(currentDate.setDate(currentDate.getDate() - 30));
+      endDate = new Date();
+  }
+
+  let stats = {};
+
+  switch (type) {
+    case "donations":
+      stats = await getDonationStats(startDate, endDate, period);
+      break;
+    case "users":
+      stats = await getUserStats(startDate, endDate, period);
+      break;
+    case "funding":
+      stats = await getFundingStats(startDate, endDate, period);
+      break;
+    case "contacts":
+      stats = await getContactStats(startDate, endDate, period);
+      break;
+    default:
+      return next(new ErrorResponse("Invalid stats type", 400));
+  }
+
+  res.status(200).json({
+    success: true,
+    period: {
+      type: period,
+      start: startDate,
+      end: endDate,
+    },
+    data: stats,
+  });
+});
+
 // @desc    Get quick stats for dashboard cards
 // @route   GET /api/dashboard/quick-stats
 // @access  Private
-exports.getQuickStats = asyncHandler(async (req, res, next) => {
+const getQuickStats = asyncHandler(async (req, res, next) => {
   const user = req.user;
   let quickStats = {};
 
   const today = new Date();
   const startOfToday = new Date(today.setHours(0, 0, 0, 0));
 
-  if (user.role === 'admin') {
+  if (user.role === "admin") {
     const [
       totalUsers,
       pendingRequests,
@@ -1237,134 +1364,141 @@ exports.getQuickStats = asyncHandler(async (req, res, next) => {
       todayContacts,
     ] = await Promise.all([
       User.countDocuments(),
-      DonationRequest.countDocuments({ isActive: true, status: 'pending' }),
+      DonationRequest.countDocuments({ isActive: true, status: "pending" }),
       Funding.aggregate([
-        { $match: { status: 'succeeded' } },
-        { $group: { _id: null, total: { $sum: '$amount' } } },
+        { $match: { status: "succeeded" } },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
-      Contact.countDocuments({ status: 'new' }),
+      Contact.countDocuments({ status: "new" }),
       User.countDocuments({ createdAt: { $gte: startOfToday } }),
-      DonationRequest.countDocuments({ isActive: true, status: 'pending', createdAt: { $gte: startOfToday } }),
+      DonationRequest.countDocuments({
+        isActive: true,
+        status: "pending",
+        createdAt: { $gte: startOfToday },
+      }),
       Funding.aggregate([
-        { $match: { status: 'succeeded', transactionDate: { $gte: startOfToday } } },
-        { $group: { _id: null, total: { $sum: '$amount' } } },
+        {
+          $match: {
+            status: "succeeded",
+            transactionDate: { $gte: startOfToday },
+          },
+        },
+        { $group: { _id: null, total: { $sum: "$amount" } } },
       ]),
-      Contact.countDocuments({ status: 'new', createdAt: { $gte: startOfToday } }),
+      Contact.countDocuments({
+        status: "new",
+        createdAt: { $gte: startOfToday },
+      }),
     ]);
 
     quickStats = {
       users: {
         total: totalUsers,
         today: todayUsers,
-        icon: '👥',
-        color: 'blue',
+        icon: "👥",
+        color: "blue",
       },
       requests: {
         total: pendingRequests,
         today: todayRequests,
-        icon: '🩸',
-        color: 'red',
+        icon: "🩸",
+        color: "red",
       },
       funding: {
         total: totalFunding.length > 0 ? totalFunding[0].total : 0,
         today: todayFunding.length > 0 ? todayFunding[0].total : 0,
-        icon: '💰',
-        color: 'green',
+        icon: "💰",
+        color: "green",
       },
       contacts: {
         total: unreadContacts,
         today: todayContacts,
-        icon: '📧',
-        color: 'purple',
+        icon: "📧",
+        color: "purple",
       },
     };
-  } else if (user.role === 'volunteer') {
-    const [
-      assignedContacts,
-      pendingRequests,
-      resolvedThisWeek,
-      activeDonors,
-    ] = await Promise.all([
-      Contact.countDocuments({ assignedTo: user._id, status: { $in: ['new', 'in-progress', 'read'] } }),
-      DonationRequest.countDocuments({ 
-        isActive: true, 
-        status: 'pending',
-        recipientDistrict: user.district,
-      }),
-      Contact.countDocuments({ 
-        assignedTo: user._id, 
-        status: { $in: ['resolved', 'closed'] },
-        updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
-      }),
-      User.countDocuments({ 
-        role: 'donor', 
-        status: 'active',
-        district: user.district,
-        isAvailable: true,
-      }),
-    ]);
+  } else if (user.role === "volunteer") {
+    const [assignedContacts, pendingRequests, resolvedThisWeek, activeDonors] =
+      await Promise.all([
+        Contact.countDocuments({
+          assignedTo: user._id,
+          status: { $in: ["new", "in-progress", "read"] },
+        }),
+        DonationRequest.countDocuments({
+          isActive: true,
+          status: "pending",
+          recipientDistrict: user.district,
+        }),
+        Contact.countDocuments({
+          assignedTo: user._id,
+          status: { $in: ["resolved", "closed"] },
+          updatedAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
+        }),
+        User.countDocuments({
+          role: "donor",
+          status: "active",
+          district: user.district,
+          isAvailable: true,
+        }),
+      ]);
 
     quickStats = {
       assignments: {
         total: assignedContacts,
-        icon: '📋',
-        color: 'blue',
+        icon: "📋",
+        color: "blue",
       },
       localRequests: {
         total: pendingRequests,
-        icon: '🔍',
-        color: 'red',
+        icon: "🔍",
+        color: "red",
       },
       resolved: {
         total: resolvedThisWeek,
-        icon: '✅',
-        color: 'green',
+        icon: "✅",
+        color: "green",
       },
       availableDonors: {
         total: activeDonors,
-        icon: '👥',
-        color: 'purple',
+        icon: "👥",
+        color: "purple",
       },
     };
-  } else if (user.role === 'donor') {
-    const [
-      myRequests,
-      myDonations,
-      myFunding,
-      nearbyRequests,
-    ] = await Promise.all([
-      DonationRequest.countDocuments({ requester: user._id, isActive: true }),
-      DonationRequest.countDocuments({ donor: user._id, status: 'done' }),
-      Funding.countDocuments({ donor: user._id, status: 'succeeded' }),
-      DonationRequest.countDocuments({ 
-        isActive: true, 
-        status: 'pending',
-        bloodGroup: user.bloodGroup,
-        recipientDistrict: user.district,
-        donationDate: { $gte: new Date() },
-      }),
-    ]);
+  } else if (user.role === "donor") {
+    const [myRequests, myDonations, myFunding, nearbyRequests] =
+      await Promise.all([
+        DonationRequest.countDocuments({ requester: user._id, isActive: true }),
+        DonationRequest.countDocuments({ donor: user._id, status: "done" }),
+        Funding.countDocuments({ donor: user._id, status: "succeeded" }),
+        DonationRequest.countDocuments({
+          isActive: true,
+          status: "pending",
+          bloodGroup: user.bloodGroup,
+          recipientDistrict: user.district,
+          donationDate: { $gte: new Date() },
+        }),
+      ]);
 
     quickStats = {
       requests: {
         total: myRequests,
-        icon: '📋',
-        color: 'blue',
+        icon: "📋",
+        color: "blue",
       },
       donations: {
         total: myDonations,
-        icon: '🩸',
-        color: 'red',
+        icon: "🩸",
+        color: "red",
       },
       funding: {
         total: myFunding,
-        icon: '💰',
-        color: 'green',
+        icon: "💰",
+        color: "green",
       },
       opportunities: {
         total: nearbyRequests,
-        icon: '🎯',
-        color: 'purple',
+        icon: "🎯",
+        color: "purple",
       },
     };
   }
@@ -1378,23 +1512,20 @@ exports.getQuickStats = asyncHandler(async (req, res, next) => {
 // @desc    Get recent activities for dashboard
 // @route   GET /api/dashboard/recent-activities
 // @access  Private
-exports.getRecentActivities = asyncHandler(async (req, res, next) => {
+const getRecentActivities = asyncHandler(async (req, res, next) => {
   const user = req.user;
   const limit = parseInt(req.query.limit, 10) || 10;
 
   let filter = {};
 
   // Different activities based on role
-  if (user.role === 'admin') {
+  if (user.role === "admin") {
     // Admin sees all activities
     filter = {};
-  } else if (user.role === 'volunteer') {
+  } else if (user.role === "volunteer") {
     // Volunteer sees their activities and donation/contact activities
     filter = {
-      $or: [
-        { user: user._id },
-        { category: { $in: ['donation', 'contact'] } },
-      ],
+      $or: [{ user: user._id }, { category: { $in: ["donation", "contact"] } }],
     };
   } else {
     // Donor sees only their activities
@@ -1404,8 +1535,8 @@ exports.getRecentActivities = asyncHandler(async (req, res, next) => {
   const activities = await ActivityLog.find(filter)
     .sort({ createdAt: -1 })
     .limit(limit)
-    .populate('user', 'name email avatar')
-    .populate('entityId');
+    .populate("user", "name email avatar")
+    .populate("entityId");
 
   res.status(200).json({
     success: true,
@@ -1417,7 +1548,7 @@ exports.getRecentActivities = asyncHandler(async (req, res, next) => {
 // @desc    Get dashboard notifications
 // @route   GET /api/dashboard/notifications
 // @access  Private
-exports.getDashboardNotifications = asyncHandler(async (req, res, next) => {
+const getDashboardNotifications = asyncHandler(async (req, res, next) => {
   const user = req.user;
   const limit = parseInt(req.query.limit, 10) || 10;
 
@@ -1426,19 +1557,19 @@ exports.getDashboardNotifications = asyncHandler(async (req, res, next) => {
   })
     .sort({ createdAt: -1 })
     .limit(limit)
-    .populate('sender', 'name email avatar');
+    .populate("sender", "name email avatar");
 
   // Mark as read if requested
-  if (req.query.markAsRead === 'true') {
+  if (req.query.markAsRead === "true") {
     await Notification.updateMany(
-      { recipient: user._id, status: 'unread' },
-      { status: 'read', readAt: new Date() }
+      { recipient: user._id, status: "unread" },
+      { status: "read", readAt: new Date() }
     );
   }
 
   const unreadCount = await Notification.countDocuments({
     recipient: user._id,
-    status: 'unread',
+    status: "unread",
   });
 
   res.status(200).json({
@@ -1448,3 +1579,15 @@ exports.getDashboardNotifications = asyncHandler(async (req, res, next) => {
     data: notifications,
   });
 });
+
+// Create controller object with all methods
+const dashboardController = {
+  getDashboard,
+  getDashboardStats,
+  getQuickStats,
+  getRecentActivities,
+  getDashboardNotifications,
+};
+
+// Export the controller object as default
+export default dashboardController;

@@ -1,16 +1,15 @@
-// server/src/controllers/userController.js
-const User = require('../models/User');
-const DonationRequest = require('../models/DonationRequest');
-const ActivityLog = require('../models/ActivityLog');
-const Notification = require('../models/Notification');
-const Funding = require('../models/Funding');
-const asyncHandler = require('../middleware/asyncHandler');
-const ErrorResponse = require('../utils/errorResponse');
+import User from '../models/User.js';
+import DonationRequest from '../models/DonationRequest.js';
+import ActivityLog from '../models/ActivityLog.js';
+import Notification from '../models/Notification.js';
+import Funding from '../models/Funding.js';
+import asyncHandler from '../middleware/asyncHandler.js';
+import ErrorResponse from '../utils/errorResponse.js';
 
 // @desc    Get all users (Admin only)
 // @route   GET /api/users
 // @access  Private/Admin
-exports.getAllUsers = asyncHandler(async (req, res, next) => {
+export const getAllUsers = asyncHandler(async (req, res, next) => {
   // Pagination
   const page = parseInt(req.query.page, 10) || 1;
   const limit = parseInt(req.query.limit, 10) || 20;
@@ -87,7 +86,7 @@ exports.getAllUsers = asyncHandler(async (req, res, next) => {
 // @desc    Get single user
 // @route   GET /api/users/:id
 // @access  Private
-exports.getUser = asyncHandler(async (req, res, next) => {
+export const getUser = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id).select('-password');
 
   if (!user) {
@@ -142,7 +141,7 @@ exports.getUser = asyncHandler(async (req, res, next) => {
 // @desc    Update user
 // @route   PUT /api/users/:id
 // @access  Private
-exports.updateUser = asyncHandler(async (req, res, next) => {
+export const updateUser = asyncHandler(async (req, res, next) => {
   const updates = { ...req.body };
   
   // Remove fields that cannot be updated via this endpoint
@@ -197,7 +196,7 @@ exports.updateUser = asyncHandler(async (req, res, next) => {
 // @desc    Delete user (Admin only)
 // @route   DELETE /api/users/:id
 // @access  Private/Admin
-exports.deleteUser = asyncHandler(async (req, res, next) => {
+export const deleteUser = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id);
 
   if (!user) {
@@ -254,7 +253,7 @@ exports.deleteUser = asyncHandler(async (req, res, next) => {
 // @desc    Block/Unblock user (Admin only)
 // @route   PATCH /api/users/:id/block
 // @access  Private/Admin
-exports.blockUser = asyncHandler(async (req, res, next) => {
+export const blockUser = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id);
 
   if (!user) {
@@ -319,7 +318,7 @@ exports.blockUser = asyncHandler(async (req, res, next) => {
 // @desc    Change user role (Admin only)
 // @route   PATCH /api/users/:id/role
 // @access  Private/Admin
-exports.changeUserRole = asyncHandler(async (req, res, next) => {
+export const changeUserRole = asyncHandler(async (req, res, next) => {
   const { role } = req.body;
   const allowedRoles = ['donor', 'volunteer', 'admin'];
 
@@ -387,7 +386,7 @@ exports.changeUserRole = asyncHandler(async (req, res, next) => {
 // @desc    Get user statistics
 // @route   GET /api/users/:id/stats
 // @access  Private
-exports.getUserStats = asyncHandler(async (req, res, next) => {
+export const getUserStats = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id);
 
   if (!user) {
@@ -499,7 +498,7 @@ exports.getUserStats = asyncHandler(async (req, res, next) => {
 // @desc    Search donors by filters
 // @route   GET /api/users/search/donors
 // @access  Public
-exports.searchDonors = asyncHandler(async (req, res, next) => {
+export const searchDonors = asyncHandler(async (req, res, next) => {
   const {
     bloodGroup,
     district,
@@ -602,7 +601,7 @@ exports.searchDonors = asyncHandler(async (req, res, next) => {
 // @desc    Toggle donor availability
 // @route   PATCH /api/users/:id/availability
 // @access  Private
-exports.toggleAvailability = asyncHandler(async (req, res, next) => {
+export const toggleAvailability = asyncHandler(async (req, res, next) => {
   const user = await User.findById(req.params.id);
 
   if (!user) {
@@ -645,7 +644,7 @@ exports.toggleAvailability = asyncHandler(async (req, res, next) => {
 // @desc    Get top donors
 // @route   GET /api/users/top-donors
 // @access  Public
-exports.getTopDonors = asyncHandler(async (req, res, next) => {
+export const getTopDonors = asyncHandler(async (req, res, next) => {
   const limit = parseInt(req.query.limit, 10) || 10;
 
   const topDonors = await User.aggregate([
@@ -689,7 +688,7 @@ exports.getTopDonors = asyncHandler(async (req, res, next) => {
 // @desc    Update last donation date
 // @route   PATCH /api/users/:id/last-donation
 // @access  Private/Admin
-exports.updateLastDonation = asyncHandler(async (req, res, next) => {
+export const updateLastDonation = asyncHandler(async (req, res, next) => {
   const { donationDate } = req.body;
 
   if (!donationDate) {
@@ -731,3 +730,18 @@ exports.updateLastDonation = asyncHandler(async (req, res, next) => {
     message: 'Last donation date updated successfully',
   });
 });
+
+// Export all functions as named exports
+export default {
+  getAllUsers,
+  getUser,
+  updateUser,
+  deleteUser,
+  blockUser,
+  changeUserRole,
+  getUserStats,
+  searchDonors,
+  toggleAvailability,
+  getTopDonors,
+  updateLastDonation
+};
